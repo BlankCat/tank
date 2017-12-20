@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+	</head>
+	<body>
+		<style type="text/css">
+			*{margin: 0;padding: 0;}
+		</style>
+		<div style="display: block;text-align: center;margin: 10px auto;">键盘箭头控制方向，空格发子弹</div>
+		<canvas id="tankMap" width="900" height="600" style="background-color:black;margin: 0 auto;display: block;"></canvas>
+		<script type="text/javascript">
+			
+			var canvas=document.getElementById('tankMap');
+			var cxt=canvas.getContext('2d');
+			var heroColor=['#0D5FAD','#084076','#084B8B'];
+			var enmeyColor=['#C61FC9','#7E0A7E','#AA0FAD'];
+			var enmeyNum=5;
+			var hero=new Hero(400,550,'up',heroColor);
+			var heroBullet=null;
+			var enemyTanks=[];
+			var heroBullets=[];
+			var bombs=[];
+			var enemyBullets=[];
+			for(var i=0;i<enmeyNum;i++){
+				var enemyTank=new Enemy((i+1)*150,40,'down',enmeyColor);
+				enemyTanks[i]=enemyTank;
+				window.setInterval("enemyTanks["+i+"].run()",50);
+				enemyBullets[i]=new Bullet(enemyTanks[i].x,enemyTanks[i].y,'down',6,"enemy",enemyTanks[i]);
+				//启动该子弹
+				enemyBullets[i].timer=window.setInterval("enemyBullets["+i+"].run()",50);
+			}
+			refresh();
+			window.onkeydown=function(event){
+				var e=event||window.event;
+				if(e.keyCode==37){
+					if(hero.x>25){
+						hero.moveLeft();
+					}
+				}
+				if(e.keyCode==38){
+					if(hero.y>25){
+						hero.moveUp();
+					}
+				}
+				if(e.keyCode==39){
+					if(hero.x<900-25){
+						hero.moveRight();
+					}
+				}
+				if(e.keyCode==40){
+					if(hero.y<600-25){
+						hero.moveDown();
+					}
+				}
+				if(e.keyCode==32){
+					hero.shoot();
+				}
+				refresh();
+			}
+			setInterval("refresh()",100);
+			function refresh(){
+				cxt.clearRect(0,0,900,600);
+				DrawTank(hero);
+				if(heroBullets.length>0){
+					drawHeroBullet();
+				}
+				isHitEnemyTank();
+				for(var i=0;i<enmeyNum;i++){
+					DrawTank(enemyTanks[i])
+				}
+				drawEnemyBomb();
+				drawEnemyBullet();
+				isHitHeroTank();
+			}
+			setInterval("refresh()",100);
+			function Bullet(x,y,direction,speed,type,tank){
+				this.x=x;
+				this.y=y;
+				this.direction=direction;
+				this.speed=speed;
+				this.type=type;
+				this.tank=tank;
+				this.timer=null;
+				this.isLive=true;
+				this.run=function(){
+					if(this.x<=0||this.x>=900||this.y<=0||this.y>=600){
+						clearInterval(this.timer);
+						this.isLive=false;
+						if(this.type=="enemy"){
+							this.tank.bulletIsLive=false;
+						}
+					}else{
+						if(this.direction=="up"){
+							this.y-=this.speed;
+						}else if(this.direction=="right"){
+							this.x+=this.speed;
+						}else if(this.direction=="down"){
+							this.y+=this.speed;
+						}else if(this.direction=="left"){
+							this.x-=this.speed;
+						}
+					}
+				}
+			}
+			function drawHeroBullet(){
+				for(var i=0;i<heroBullets.length;i++){
+					var heroBullet=heroBullets[i];
+					if(heroBullet!=null&&heroBullet.isLive){
+						cxt.beginPath();
+						cxt.fillStyle="#084B8B";
+						cxt.arc(heroBullet.x,heroBullet.y,2,0,2*Math.PI,false);
+						cxt.closePath();
+						cxt.fill();
+					}
+				}
+			}
+			function drawEnemyBullet(){
+				for(var i=0;i<enemyBullets.length;i++){
+					var enemyBullet=enemyBullets[i];
+					if(enemyBullet.isLive){
+						cxt.beginPath();
+						cxt.fillStyle="#AA0FAD";
+						cxt.arc(enemyBullet.x,enemyBullet.y,2,0,2*Math.PI,false);
+						cxt.closePath();
+						cxt.fill();
+					}
+				}
+			}
+			function Bomb(x,y){
+				this.x=x;
+				this.y=y;
+				this.isLive=true; //炸弹可以用
+				this.blood=9;  //炸弹的生命值
+				this.bloodDown=function(){
+					if(this.blood>0){
+						this.blood--;
+					}else{
+						this.isLive=false;
+					}
+				}
+			}
+			function drawEnemyBomb(){
+				for(var i=0;i<bombs.length;i++){
+					var bomb=bombs[i];
+					if(bomb.isLive){
+						var x=bomb.x;
+						var y=bomb.y;
+						if(bomb.blood>6){
+							var img1=new Image();
+							img1.src="images/bomb_1.gif";
+							img1.onload=function(){
+								cxt.drawImage(img1,x-15,y-15,30,30);
+							}
+						}else if(bomb.blood>3){
+							var img2=new Image();
+							img2.src="images/bomb_2.gif";
+							img2.onload=function(){
+								cxt.drawImage(img2,x-15,y-15,30,30);
+							}
+						}else{
+							var img3=new Image();
+							img3.src="images/bomb_3.gif";
+							img3.onload=function(){
+								cxt.drawImage(img3,x-15,y-15,30,30);
+							}
+						}
+						bomb.bloodDown();
+						if(bomb.blood<=0){
+							bombs.splice(i,1);
+						}
+					}
+				}
+			}
+			function Tank(x,y,direction,color){
+				this.x=x;
+				this.y=y;
+				this.direction=direction;
+				this.color=color
+				this.speed=4;
+				this.isLive=true;
+				this.moveUp=function(){
+					this.y-=this.speed;
+					this.direction="up";
+				}
+				this.moveRight=function(){
+					this.x+=this.speed;
+					this.direction="right";
+				}
+				this.moveDown=function(){
+					this.y+=this.speed;
+					this.direction="down";
+				}
+				this.moveLeft=function(){
+					this.x-=this.speed;
+					this.direction="left";
+				}
+			}
+			function Hero(x,y,direction,color){
+				this.tank=Tank;
+				this.tank(x,y,direction,color);
+				this.shoot=function(){
+					heroBullet=new Bullet(this.x,this.y,this.direction,8);
+					heroBullets.push(heroBullet);
+					heroBullets[heroBullets.length-1].timer=setInterval("heroBullets["+(heroBullets.length-1)+"].run()",50);
+				}
+			}
+			function Enemy(x,y,direction,color){
+				this.tank=Tank;
+				this.tank(x,y,direction,color);
+				this.count=0;
+				this.bulletIsLive=true;
+				this.run=function(){
+					if(this.direction=="up"&&this.y>25){
+						this.y-=this.speed;
+					}else if(this.direction=="right"&&this.x<900-25){
+						this.x+=this.speed;
+					}else if(this.direction=="down"&&this.y<600-25){
+						this.y+=this.speed;
+					}else if(this.direction=="left"&&this.x>25){
+						this.x-=this.speed;
+					}
+					if(this.count>30){
+						var direct=Math.round(Math.random()*3);
+						if(direct==0){
+							this.direction="up";
+						}else if(direct==1){
+							this.direction="right";
+						}else if(direct==2){
+							this.direction="down";
+						}else if(direct==3){
+							this.direction="left";
+						}
+						this.count=0;
+					}
+					this.count++;
+					if(this.bulletIsLive==false){
+						enemyBullet=new Bullet(this.x,this.y,this.direction,8,"enemy",this);
+						enemyBullets.push(enemyBullet);
+						enemyBullets[enemyBullets.length-1].timer=window.setInterval("enemyBullets["+(enemyBullets.length-1)+"].run()",50);
+						this.bulletIsLive=true;
+					}
+				}
+			}
+			function DrawTank(tank){
+				
+				if(tank.isLive){
+					if(tank.direction=='up'||tank.direction=='down'){
+						cxt.fillStyle=tank.color[0];
+						//左边
+						cxt.fillRect(tank.x-25,tank.y-25,10,50);
+						//右边
+						cxt.fillRect(tank.x+15,tank.y-25,10,50);
+						//中间
+						cxt.fillRect(tank.x-13,tank.y-18,26,36);
+						
+						//中间圆
+						cxt.beginPath();
+						cxt.fillStyle=tank.color[1];
+						cxt.arc(tank.x,tank.y,10,0,2*Math.PI,true);
+						cxt.closePath();
+						cxt.fill();
+						//炮杆
+						cxt.strokeStyle=tank.color[2];
+						cxt.lineWidth=4;
+						cxt.beginPath();
+						cxt.moveTo(tank.x,tank.y);
+						if(tank.direction=="up"){
+							cxt.lineTo(tank.x,tank.y-25);
+						}else if(tank.direction=="down"){
+							cxt.lineTo(tank.x,tank.y+25);
+						}
+						cxt.closePath();
+						cxt.stroke();
+					}else if(tank.direction=='left'||tank.direction=='right'){
+						cxt.fillStyle=tank.color[0];
+						//上边
+						cxt.fillRect(tank.x-25,tank.y-25,50,10);
+						//下边
+						cxt.fillRect(tank.x-25,tank.y+15,50,10);
+						//中间
+						cxt.fillRect(tank.x-18,tank.y-13,36,26);
+						
+						//中间圆
+						cxt.beginPath();
+						cxt.fillStyle=tank.color[1];
+						cxt.arc(tank.x,tank.y,10,0,2*Math.PI,true);
+						cxt.closePath();
+						cxt.fill();
+						//炮杆
+						cxt.strokeStyle=tank.color[2];
+						cxt.lineWidth=4;
+						cxt.beginPath();
+						cxt.moveTo(tank.x,tank.y);
+						if(tank.direction=="left"){
+							cxt.lineTo(tank.x-25,tank.y);
+						}else if(tank.direction=="right"){
+							cxt.lineTo(tank.x+25,tank.y);
+						}
+						cxt.closePath();
+						cxt.stroke();
+					}
+				}
+				
+				
+			}
+			
+			function isHitEnemyTank(){
+				for(var i=0;i<heroBullets.length;i++){
+					var heroBullet=heroBullets[i];
+					if(heroBullet.isLive){
+						for(var j=0;j<enemyTanks.length;j++){
+							var enemyTank=enemyTanks[j];
+							if(enemyTank.isLive){
+								if(enemyTank.x-25<=heroBullet.x&&enemyTank.x+25>=heroBullet.x&&enemyTank.y-25<=heroBullet.y&&enemyTank.y+25>=heroBullet.y){
+									enemyTank.isLive=false;
+									heroBullet.isLive=false;
+									var bomb=new Bomb(enemyTank.x,enemyTank.y);
+									bombs.push(bomb);
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			function isHitHeroTank(){
+				for(var i=0;i<enemyBullets.length;i++){
+					var enemyBullet=enemyBullets[i];
+					if(enemyBullet.isLive){
+						if(hero.isLive){
+							if(hero.x-25<=enemyBullet.x&&hero.x+25>=enemyBullet.x&&hero.y-25<=enemyBullet.y&&hero.y+25>=enemyBullet.y){
+								hero.isLive=false;
+								enemyBullet.isLive=false;
+								var bomb=new Bomb(hero.x,hero.y);
+								bombs.push(bomb);
+							}
+						}
+					}
+				}
+			}
+			
+			
+			
+		</script>
+	</body>
+</html>
